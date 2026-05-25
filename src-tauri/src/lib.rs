@@ -2,9 +2,15 @@ use std::sync::Mutex;
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
+use std::fs::{OpenOptions, create_dir_all};
+use std::io::Write;
+use std::path::PathBuf;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
+
+use tauri::AppHandle;
+use tauri::Manager;
 
 // Global state to track shutdown status
 pub struct ShutdownState {
@@ -26,10 +32,143 @@ pub static SHUTDOWN_STATE: Mutex<ShutdownState> = Mutex::new(ShutdownState {
     remaining_seconds: 0,
 });
 
+// Log entry structure
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LogEntry {
+    pub id: String,
+    pub timestamp: String,
+    pub log_type: String,
+    pub message: String,
+    pub details: Option<serde_json::Value>,
+}
+
+// Get log file path
+fn get_log_path(app_handle: &AppHandle) -> PathBuf {
+    let app_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let log_dir = app_dir.join("logs");
+    let _ = create_dir_all(&log_dir);
+    log_dir.join("app.log")
+}
+
+// Write log to file
+fn write_log_to_file(app_handle: &AppHandle, entry: &LogEntry) -> Result<(), String> {
+    let log_path = get_log_path(app_handle);
+    let log_line = format!(
+        "[{}] [{}] {} - {}\n",
+        entry.timestamp,
+        entry.log_type,
+        entry.message,
+        entry.details.as_ref().map(|d| d.to_string()).unwrap_or_default()
+    );
+    
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .map_err(|e| e.to_string())?;
+    
+    file.write_all(log_line.as_bytes()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Add a log entry
+#[tauri::command]
+async fn add_log(
+    app_handle: AppHandle,
+    log_type: String,
+    message: String,
+    details: Option<serde_json::Value>,
+) -> Result<(), String> {
+    let entry = LogEntry {
+        id: format!("{}-{}", chrono::Local::now().timestamp_millis(), rand::random::<u32>()),
+        timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        log_type,
+        message,
+        details,
+    };
+    
+    write_log_to_file(&app_handle, &entry)
+}
+
+/// Get all logs
+#[tauri::command]
+async fn get_logs(app_handle: AppHandle) -> Result<Vec<LogEntry>, String> {
+    let log_path = get_log_path(&app_handle);
+    
+    if !log_path.exists() {
+        return Ok(vec![]);
+    }
+    
+    let content = std::fs::read_to_string(&log_path).map_err(|e| e.to_string())?;
+    let mut logs = vec![];
+    
+    for line in content.lines() {
+        if line.starts_with('[') {
+            // Parse log line: [timestamp] [type] message - details
+            if let Some(end_bracket) = line.find("] [") {
+                let timestamp = &line[1..end_bracket];
+                let rest = &line[end_bracket + 3..];
+                if let Some(type_end) = rest.find("] ") {
+                    let log_type = &rest[..type_end];
+                    let message_and_details = &rest[type_end + 2..];
+                    
+                    let (message, details) = if let Some(dash_pos) = message_and_details.rfind(" - ") {
+                        let msg = &message_and_details[..dash_pos];
+                        let det_str = &message_and_details[dash_pos + 3..];
+                        let details = if det_str.is_empty() || det_str == "{}" {
+                            None
+                        } else {
+                            serde_json::from_str(det_str).ok()
+                        };
+                        (msg.to_string(), details)
+                    } else {
+                        (message_and_details.to_string(), None)
+                    };
+                    
+                    logs.push(LogEntry {
+                        id: format!("{}-{}", logs.len(), rand::random::<u32>()),
+                        timestamp: timestamp.to_string(),
+                        log_type: log_type.to_string(),
+                        message,
+                        details,
+                    });
+                }
+            }
+        }
+    }
+    
+    // Reverse to show newest first
+    logs.reverse();
+    Ok(logs)
+}
+
+/// Clear all logs
+#[tauri::command]
+async fn clear_logs(app_handle: AppHandle) -> Result<(), String> {
+    let log_path = get_log_path(&app_handle);
+    if log_path.exists() {
+        std::fs::remove_file(&log_path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+// Helper function to add log entry (non-async version for use in sync contexts)
+fn add_log_entry(app_handle: &AppHandle, log_type: &str, message: &str, details: Option<serde_json::Value>) -> Result<(), String> {
+    let entry = LogEntry {
+        id: format!("{}-{}", chrono::Local::now().timestamp_millis(), rand::random::<u32>()),
+        timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        log_type: log_type.to_string(),
+        message: message.to_string(),
+        details,
+    };
+    
+    write_log_to_file(app_handle, &entry)
+}
+
 /// Schedule shutdown after specified seconds
 /// Uses a background thread to wait and then execute shutdown
 #[tauri::command]
-async fn schedule_shutdown(seconds: u32) -> Result<(), String> {
+async fn schedule_shutdown(app_handle: AppHandle, seconds: u32) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         // Update state
@@ -37,6 +176,9 @@ async fn schedule_shutdown(seconds: u32) -> Result<(), String> {
             state.is_scheduled = true;
             state.remaining_seconds = seconds;
         }
+
+        // Clone app_handle for the thread
+        let app_handle_clone = app_handle.clone();
 
         // Spawn a background thread to handle the countdown
         thread::spawn(move || {
@@ -51,6 +193,9 @@ async fn schedule_shutdown(seconds: u32) -> Result<(), String> {
                     state.remaining_seconds = remaining;
                 }
             }
+            
+            // Log shutdown complete before executing shutdown
+            let _ = add_log_entry(&app_handle_clone, "shutdown_complete", "关机命令已执行，系统即将关闭", None);
             
             // Time's up - execute shutdown immediately (no Windows countdown)
             let _ = Command::new("shutdown")
@@ -149,7 +294,10 @@ pub fn run() {
             get_shutdown_status,
             update_remaining_seconds,
             hide_to_tray,
-            show_from_tray
+            show_from_tray,
+            add_log,
+            get_logs,
+            clear_logs
         ])
         .setup(|app| {
             // Create tray menu
@@ -171,6 +319,8 @@ pub fn run() {
                             }
                         }
                         "quit" => {
+                            // Log app exit before quitting
+                            let _ = add_log_entry(&app, "app_exit", "用户主动退出应用", None);
                             app.exit(0);
                         }
                         _ => {}

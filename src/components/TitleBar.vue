@@ -10,6 +10,14 @@
 
     <!-- Window Controls -->
     <div class="flex items-center gap-1 no-drag">
+      <!-- Log Button -->
+      <button
+        @click="$emit('show-logs')"
+        class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-200"
+        title="查看日志"
+      >
+        <FileTextIcon class="w-4 h-4" />
+      </button>
       <button
         @click="minimizeWindow"
         class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-200"
@@ -29,9 +37,13 @@
 </template>
 
 <script setup lang="ts">
-import { PowerIcon, MinusIcon, XIcon } from 'lucide-vue-next';
+import { PowerIcon, MinusIcon, XIcon, FileTextIcon } from 'lucide-vue-next';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
+
+defineEmits<{
+  'show-logs': [];
+}>();
 
 const minimizeWindow = async () => {
   try {

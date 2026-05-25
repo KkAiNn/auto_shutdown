@@ -1,0 +1,37 @@
+# Auto Shutdown 项目规范
+
+## Git 提交规范
+
+### 1. 自动更新 README.md
+每次执行 `git commit` 时，必须自动更新 README.md 文件中的时间戳。
+
+**实现方式：**
+项目已配置 Git pre-commit 钩子，位于 `.git/hooks/pre-commit`，内容如下：
+```bash
+#!/bin/bash
+# 获取当前日期时间
+CURRENT_DATE=$(date "+%Y-%m-%d %H:%M:%S")
+
+# 更新 README.md 中的时间戳
+sed -i "s/\*最后更新:.*/\*最后更新: $CURRENT_DATE\*/" README.md
+
+# 将更新后的 README.md 添加到暂存区
+git add README.md
+```
+
+**注意事项：**
+- 钩子会在每次提交前自动执行
+- 如果 README.md 中包含 `*最后更新:` 格式的文本，会被自动替换为当前时间
+- 确保 README.md 中有类似 `*最后更新: 2026-05-25 11:35:53*` 的占位文本
+
+## 项目技术栈
+- Tauri 2.0
+- Vue 3 + TypeScript
+- Tailwind CSS
+- Rust
+
+## 开发规范
+- 窗口固定宽度 400px，高度自适应内容
+- 无边框设计，自定义标题栏
+- 深色优雅主题
+- 系统托盘功能（关闭按钮最小化到托盘）

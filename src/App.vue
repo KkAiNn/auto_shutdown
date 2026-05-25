@@ -1,15 +1,15 @@
 <template>
   <div class="w-full h-full bg-gradient-to-br from-dark-900 via-dark-850 to-dark-800 text-white flex flex-col overflow-hidden">
     <!-- Custom Title Bar -->
-    <TitleBar />
+    <TitleBar @show-logs="showLogViewer = true" />
 
     <!-- Main Content - Scrollable -->
     <div class="flex-1 flex flex-col p-6 gap-5 overflow-y-auto">
       <!-- Countdown Ring Section -->
       <div class="flex justify-center py-1 animate-slide-up flex-shrink-0">
         <CountdownRing
-          :formatted-time="formattedTime"
-          :progress="progress"
+          :formatted-time="state.isRunning ? formattedTime : previewFormattedTime"
+          :progress="state.isRunning ? progress : 1"
           :is-running="state.isRunning"
           :size="160"
           :stroke-width="6"
@@ -20,6 +20,9 @@
       <div class="text-center animate-fade-in flex-shrink-0" style="animation-delay: 0.2s;">
         <p v-if="state.isRunning" class="text-sm text-primary-400 font-medium">
           系统将在 {{ formattedTime }} 后关机
+        </p>
+        <p v-else-if="selectedMinutes > 0" class="text-sm text-primary-400 font-medium">
+          {{ shutdownTimeText }}
         </p>
         <p v-else class="text-sm text-gray-500">
           选择时间开始倒计时关机
@@ -38,6 +41,7 @@
       <!-- Custom Time Input -->
       <div class="animate-slide-up flex-shrink-0" style="animation-delay: 0.4s;">
         <CustomTimeInput
+          v-model="selectedMinutes"
           :is-running="state.isRunning"
           @change="onCustomTimeChange"
         />
@@ -117,18 +121,46 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Log Viewer -->
+    <Transition name="fade">
+      <LogViewer
+        v-if="showLogViewer"
+        :logs="logs"
+        :stats="stats"
+        @close="showLogViewer = false"
+        @clear="handleClearLogs"
+      />
+    </Transition>
+
+    <!-- Global Confirm Dialog -->
+    <ConfirmDialog
+      :visible="confirmState.visible"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      :type="confirmState.type"
+      :confirm-text="confirmState.confirmText"
+      :cancel-text="confirmState.cancelText"
+      :show-cancel="confirmState.showCancel"
+      @confirm="onDialogConfirm"
+      @cancel="onDialogCancel"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { PlayIcon, SquareIcon, PowerIcon, AlertCircleIcon, AlertTriangleIcon } from 'lucide-vue-next';
 import TitleBar from './components/TitleBar.vue';
 import CountdownRing from './components/CountdownRing.vue';
 import PresetButtons from './components/PresetButtons.vue';
 import CustomTimeInput from './components/CustomTimeInput.vue';
+import LogViewer from './components/LogViewer.vue';
+import ConfirmDialog from './components/ConfirmDialog.vue';
 import { useShutdown } from './composables/useShutdown';
 import { useSettings } from './composables/useSettings';
+import { useLogger } from './composables/useLogger';
+import { useConfirm } from './composables/useConfirm';
 import { invoke } from '@tauri-apps/api/core';
 
 const {
@@ -141,8 +173,50 @@ const {
 } = useShutdown();
 
 const { autoHideToTray, saveSettings } = useSettings();
+const { logs, stats, addLog, loadLogs, clearLogs } = useLogger();
+const { state: confirmState, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useConfirm();
 
 const selectedMinutes = ref(0);
+const currentTime = ref(Date.now());
+
+// 每秒更新当前时间，用于实时计算预计关机时间
+let timeUpdateInterval: number | null = null;
+
+const startTimeUpdate = () => {
+  if (timeUpdateInterval) return;
+  timeUpdateInterval = window.setInterval(() => {
+    currentTime.value = Date.now();
+  }, 1000);
+};
+
+const stopTimeUpdate = () => {
+  if (timeUpdateInterval) {
+    clearInterval(timeUpdateInterval);
+    timeUpdateInterval = null;
+  }
+};
+
+// 计算预计关机时间文本（实时更新）
+const shutdownTimeText = computed(() => {
+  if (selectedMinutes.value <= 0) return '';
+  const shutdownTime = new Date(currentTime.value + selectedMinutes.value * 60 * 1000);
+  const timeStr = shutdownTime.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  return `预计 ${timeStr} 自动关机`;
+});
+
+// 预览倒计时时间（未开始时的显示）
+const previewFormattedTime = computed(() => {
+  if (selectedMinutes.value <= 0) return '00:00:00';
+  const hours = Math.floor(selectedMinutes.value / 60);
+  const minutes = selectedMinutes.value % 60;
+  const seconds = 0;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+});
 
 // Dialog state
 const showDialog = ref(false);
@@ -150,13 +224,22 @@ const dialogType = ref<'start' | 'cancel'>('start');
 const dialogTitle = ref('');
 const dialogMessage = ref('');
 const tempAutoHide = ref(false);
+const showLogViewer = ref(false);
 
 const onPresetSelect = (minutes: number) => {
   selectedMinutes.value = minutes;
+  if (minutes > 0 && !state.isRunning) {
+    startTimeUpdate();
+  }
 };
 
 const onCustomTimeChange = (totalMinutes: number) => {
   selectedMinutes.value = totalMinutes;
+  if (totalMinutes > 0 && !state.isRunning) {
+    startTimeUpdate();
+  } else if (totalMinutes <= 0) {
+    stopTimeUpdate();
+  }
 };
 
 const showStartConfirm = () => {
@@ -220,6 +303,18 @@ const startShutdown = async () => {
   if (selectedMinutes.value > 0) {
     try {
       await startCountdown(selectedMinutes.value);
+      // 停止预览定时器
+      stopTimeUpdate();
+      // 计算预计关机时间
+      const shutdownTime = new Date(Date.now() + selectedMinutes.value * 60 * 1000);
+      const timeStr = shutdownTime.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      // Log shutdown start
+      await addLog('shutdown_start', `关机倒计时${selectedMinutes.value}分钟，${timeStr}自动关机`, {});
     } catch (error) {
       console.error('Failed to start shutdown:', error);
       alert('启动关机失败，请确保以管理员身份运行应用');
@@ -229,15 +324,37 @@ const startShutdown = async () => {
 
 const doCancelShutdown = async () => {
   try {
+    // 先保存剩余时间，因为 cancelShutdown 会重置它
+    const remaining = formattedTime.value;
     await cancelShutdown();
+    // Log shutdown cancel
+    await addLog('shutdown_cancel', `剩余${remaining}时被关闭，手动关闭`, {});
   } catch (error) {
     console.error('Failed to cancel shutdown:', error);
   }
 };
 
-onMounted(() => {
+const { confirm } = useConfirm();
+
+const handleClearLogs = async () => {
+  const confirmed = await confirm({
+    title: '清空日志',
+    message: '确定要清空所有日志吗？此操作不可恢复。',
+    type: 'danger',
+    confirmText: '清空',
+    cancelText: '取消',
+  });
+  
+  if (confirmed) {
+    await clearLogs();
+  }
+};
+
+onMounted(async () => {
   // Check for existing shutdown status
   getStatus();
+  // Log app start
+  await addLog('app_start', '应用程序启动', {});
 });
 </script>
 

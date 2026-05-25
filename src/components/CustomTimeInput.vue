@@ -42,11 +42,13 @@ import { ref, watch } from 'vue';
 
 interface Props {
   isRunning: boolean;
+  modelValue?: number;
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
   change: [totalMinutes: number];
+  'update:modelValue': [totalMinutes: number];
 }>();
 
 const hoursInput = ref('');
@@ -99,4 +101,14 @@ watch(() => props.isRunning, (newVal) => {
     minutes.value = 0;
   }
 });
+
+// Watch for external value changes
+watch(() => props.modelValue, (newVal) => {
+  if (newVal !== undefined && newVal >= 0) {
+    hours.value = Math.floor(newVal / 60);
+    minutes.value = newVal % 60;
+    hoursInput.value = hours.value > 0 ? hours.value.toString() : '';
+    minutesInput.value = minutes.value > 0 ? minutes.value.toString() : '';
+  }
+}, { immediate: true });
 </script>
