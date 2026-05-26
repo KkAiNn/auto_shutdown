@@ -5,8 +5,8 @@
     </label>
     <div class="grid grid-cols-4 gap-2">
       <button
-        v-for="preset in presets"
-        :key="preset.minutes"
+        v-for="preset in displayPresets"
+        :key="preset.id"
         @click="selectPreset(preset.minutes)"
         :disabled="isRunning"
         class="relative px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border"
@@ -23,10 +23,8 @@
 </template>
 
 <script setup lang="ts">
-interface Preset {
-  minutes: number;
-  label: string;
-}
+import { computed } from 'vue';
+import { usePresets } from '../composables/usePresets';
 
 interface Props {
   selectedMinutes: number;
@@ -38,16 +36,15 @@ const emit = defineEmits<{
   select: [minutes: number];
 }>();
 
-const presets: Preset[] = [
-  { minutes: 15, label: '15分' },
-  { minutes: 30, label: '30分' },
-  { minutes: 45, label: '45分' },
-  { minutes: 60, label: '1小时' },
-  { minutes: 90, label: '1.5小时' },
-  { minutes: 120, label: '2小时' },
-  { minutes: 180, label: '3小时' },
-  { minutes: 240, label: '4小时' },
-];
+const { presets } = usePresets();
+
+const displayPresets = computed(() => {
+  return presets.value.slice(0, 8).map((p) => ({
+    id: p.id,
+    minutes: p.minutes,
+    label: p.label,
+  }));
+});
 
 const selectPreset = (minutes: number) => {
   if (!props.isRunning) {

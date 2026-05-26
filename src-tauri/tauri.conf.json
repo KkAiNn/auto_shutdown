@@ -25,7 +25,8 @@
         "center": true,
         "alwaysOnTop": false,
         "focus": true,
-        "shadow": true
+        "shadow": true,
+        "visible": false
       }
     ],
     "security": {

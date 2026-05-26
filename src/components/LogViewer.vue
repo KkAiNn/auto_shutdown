@@ -24,7 +24,7 @@
           <p class="text-xs text-yellow-400/70">开始倒计时</p>
         </div>
         <div class="text-center p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
-          <p class="text-2xl font-bold text-orange-400">{{ stats.totalShutdowns - stats.totalCompletedShutdowns }}</p>
+          <p class="text-2xl font-bold text-orange-400">{{ stats.totalCanceledShutdowns }}</p>
           <p class="text-xs text-orange-400/70">取消关机</p>
         </div>
         <div class="text-center p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">

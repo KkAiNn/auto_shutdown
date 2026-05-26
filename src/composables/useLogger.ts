@@ -13,6 +13,7 @@ export function useLogger() {
     totalExits: 0,
     totalCrashes: 0,
     totalShutdowns: 0,
+    totalCanceledShutdowns: 0,
     totalCompletedShutdowns: 0,
   });
   let store: Store | null = null;
@@ -77,6 +78,9 @@ export function useLogger() {
       case 'shutdown_start':
         stats.value.totalShutdowns++;
         break;
+      case 'shutdown_cancel':
+        stats.value.totalCanceledShutdowns++;
+        break;
       case 'shutdown_complete':
         stats.value.totalCompletedShutdowns++;
         break;
@@ -102,8 +106,17 @@ export function useLogger() {
   const clearLogs = async () => {
     await initStore();
     logs.value = [];
+    stats.value = {
+      totalStarts: 0,
+      totalExits: 0,
+      totalCrashes: 0,
+      totalShutdowns: 0,
+      totalCanceledShutdowns: 0,
+      totalCompletedShutdowns: 0,
+    };
     if (store) {
       await store.set(LOGS_KEY, []);
+      await store.set(STATS_KEY, stats.value);
       await store.save();
     }
   };

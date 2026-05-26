@@ -5,14 +5,20 @@
       class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]"
       @click.self="onCancel"
     >
-      <div class="bg-dark-800 border border-white/10 rounded-2xl p-6 m-4 max-w-sm w-full shadow-2xl animate-slide-up">
+      <div
+        class="bg-dark-800 border border-white/10 rounded-2xl p-6 m-4 max-w-sm w-full shadow-2xl animate-slide-up"
+      >
         <!-- Icon -->
         <div class="flex justify-center mb-4">
           <div
             class="w-14 h-14 rounded-full flex items-center justify-center"
             :class="iconBgClass"
           >
-            <component :is="iconComponent" class="w-7 h-7" :class="iconColorClass" />
+            <component
+              :is="iconComponent"
+              class="w-7 h-7"
+              :class="iconColorClass"
+            />
           </div>
         </div>
 
@@ -45,17 +51,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { FunctionalComponent, computed } from "vue";
 import {
   AlertTriangleIcon,
   AlertCircleIcon,
   CheckCircleIcon,
   HelpCircleIcon,
   Trash2Icon,
-  type LucideIcon,
-} from 'lucide-vue-next';
+} from "lucide-vue-next";
 
-type DialogType = 'warning' | 'error' | 'success' | 'info' | 'danger';
+type DialogType = "warning" | "error" | "success" | "info" | "danger";
 
 interface Props {
   visible: boolean;
@@ -68,9 +73,9 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  type: 'info',
-  confirmText: '确定',
-  cancelText: '取消',
+  type: "info",
+  confirmText: "确定",
+  cancelText: "取消",
   showCancel: true,
 });
 
@@ -79,8 +84,8 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
-const iconComponent = computed<LucideIcon>(() => {
-  const iconMap: Record<DialogType, LucideIcon> = {
+const iconComponent = computed<FunctionalComponent>(() => {
+  const iconMap: Record<DialogType, FunctionalComponent> = {
     warning: AlertTriangleIcon,
     error: AlertCircleIcon,
     success: CheckCircleIcon,
@@ -92,42 +97,42 @@ const iconComponent = computed<LucideIcon>(() => {
 
 const iconBgClass = computed(() => {
   const bgMap: Record<DialogType, string> = {
-    warning: 'bg-yellow-500/20',
-    error: 'bg-red-500/20',
-    success: 'bg-green-500/20',
-    info: 'bg-blue-500/20',
-    danger: 'bg-red-500/20',
+    warning: "bg-yellow-500/20",
+    error: "bg-red-500/20",
+    success: "bg-green-500/20",
+    info: "bg-blue-500/20",
+    danger: "bg-red-500/20",
   };
   return bgMap[props.type];
 });
 
 const iconColorClass = computed(() => {
   const colorMap: Record<DialogType, string> = {
-    warning: 'text-yellow-400',
-    error: 'text-red-400',
-    success: 'text-green-400',
-    info: 'text-blue-400',
-    danger: 'text-red-400',
+    warning: "text-yellow-400",
+    error: "text-red-400",
+    success: "text-green-400",
+    info: "text-blue-400",
+    danger: "text-red-400",
   };
   return colorMap[props.type];
 });
 
 const confirmButtonClass = computed(() => {
   const classMap: Record<DialogType, string> = {
-    warning: 'bg-yellow-500 hover:bg-yellow-600 text-white',
-    error: 'bg-red-500 hover:bg-red-600 text-white',
-    success: 'bg-green-500 hover:bg-green-600 text-white',
-    info: 'btn-primary',
-    danger: 'bg-red-500 hover:bg-red-600 text-white',
+    warning: "bg-yellow-500 hover:bg-yellow-600 text-white",
+    error: "bg-red-500 hover:bg-red-600 text-white",
+    success: "bg-green-500 hover:bg-green-600 text-white",
+    info: "btn-primary",
+    danger: "bg-red-500 hover:bg-red-600 text-white",
   };
   return classMap[props.type];
 });
 
 const onConfirm = () => {
-  emit('confirm');
+  emit("confirm");
 };
 
 const onCancel = () => {
-  emit('cancel');
+  emit("cancel");
 };
 </script>

@@ -22,5 +22,6 @@ export interface LogStats {
   totalExits: number;
   totalCrashes: number;
   totalShutdowns: number;
+  totalCanceledShutdowns: number;
   totalCompletedShutdowns: number;
 }
