@@ -524,6 +524,44 @@ async fn show_from_tray(window: tauri::WebviewWindow) -> Result<(), String> {
     window.set_focus().map_err(|e| e.to_string())
 }
 
+/// Open settings window
+#[tauri::command]
+async fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    // Check if settings window already exists
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    
+    // Create new settings window
+    let settings_window = tauri::WebviewWindowBuilder::new(
+        &app,
+        "settings",
+        tauri::WebviewUrl::App("/settings".into())
+    )
+    .title("设置")
+    .inner_size(450.0, 550.0)
+    .min_inner_size(400.0, 400.0)
+    .center()
+    .resizable(true)
+    .decorations(false) // Custom title bar like main window
+    .transparent(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// Close settings window
+#[tauri::command]
+async fn close_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("settings") {
+        window.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use tauri::tray::{TrayIconBuilder, TrayIconEvent};
@@ -555,7 +593,9 @@ pub fn run() {
             add_log,
             get_logs,
             clear_logs,
-            get_daily_mode_status
+            get_daily_mode_status,
+            open_settings_window,
+            close_settings_window
         ])
         .setup(|app| {
             // Initialize daily mode on startup

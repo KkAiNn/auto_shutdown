@@ -81,14 +81,21 @@ const emit = defineEmits<{
   'show-settings': [];
 }>();
 
-const handleMenuClick = (action: string) => {
+const handleMenuClick = async (action: string) => {
   showDropdown.value = false;
   if (action === 'logs') {
     emit('show-logs');
   } else if (action === 'presets') {
     emit('show-presets');
   } else if (action === 'settings') {
-    emit('show-settings');
+    // Open settings in independent window
+    try {
+      await invoke('open_settings_window');
+    } catch (error) {
+      console.error('Failed to open settings window:', error);
+      // Fallback: emit event for inline settings
+      emit('show-settings');
+    }
   }
 };
 
