@@ -2,23 +2,23 @@
   <div class="h-screen w-screen bg-dark-800/95 backdrop-blur-xl flex flex-col overflow-hidden">
     <!-- Custom Title Bar -->
     <div 
-      class="h-10 flex items-center justify-between px-4 border-b border-white/10 bg-dark-900/50 select-none cursor-move" 
-      @mousedown="startDrag"
+      class="h-10 flex items-center justify-between px-4 border-b border-white/10 bg-dark-900/50 select-none" 
+      data-tauri-drag-region
     >
-      <div class="flex items-center gap-2 no-drag">
+      <div class="flex items-center gap-2 pointer-events-none">
         <SettingsIcon class="w-4 h-4 text-primary-400" />
         <span class="text-sm font-medium">设置</span>
       </div>
-      <div class="flex items-center gap-1 no-drag">
+      <div class="flex items-center gap-1">
         <button 
-          @click="minimizeWindow" 
-          class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+          @click.stop="minimizeWindow" 
+          class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors pointer-events-auto"
         >
           <MinusIcon class="w-4 h-4" />
         </button>
         <button 
-          @click="closeWindow" 
-          class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          @click.stop="closeWindow" 
+          class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors pointer-events-auto"
         >
           <XIcon class="w-4 h-4" />
         </button>
@@ -186,11 +186,6 @@ onMounted(async () => {
 const presetsForDisplay = computed(() => {
   return presets.value.slice(0, 8);
 });
-
-const startDrag = async () => {
-  const window = getCurrentWindow();
-  await window.startDragging();
-};
 
 const minimizeWindow = async () => {
   const window = getCurrentWindow();
