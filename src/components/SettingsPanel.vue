@@ -99,32 +99,12 @@
 
         <!-- Daily Limit Settings (shown when daily mode enabled) -->
         <div v-if="settings.dailyMode" class="pl-4 border-l-2 border-primary-500/30 space-y-3">
-          <div>
-            <label class="block text-xs text-gray-400 mb-2">每日使用时长</label>
-            <div class="flex items-center gap-2">
-              <div class="flex-1">
-                <input
-                  v-model.number="dailyHours"
-                  type="number"
-                  min="0"
-                  max="23"
-                  class="w-full px-3 py-2 rounded-xl bg-dark-700/50 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500/50 transition-colors no-spinner"
-                  placeholder="小时"
-                />
-              </div>
-              <span class="text-gray-500">:</span>
-              <div class="flex-1">
-                <input
-                  v-model.number="dailyMins"
-                  type="number"
-                  min="0"
-                  max="59"
-                  class="w-full px-3 py-2 rounded-xl bg-dark-700/50 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500/50 transition-colors no-spinner"
-                  placeholder="分钟"
-                />
-              </div>
-            </div>
-          </div>
+          <TimeInput
+            v-model="dailyMinutesProxy"
+            :max-hours="23"
+            hours-label="每日小时"
+            minutes-label="每日分钟"
+          />
           <p class="text-xs text-amber-400/80">
             <AlertTriangleIcon class="w-3 h-3 inline mr-1" />
             开启后将联动开启自启动，超时前1分钟提醒，无法通过任务管理器阻止关机
@@ -191,9 +171,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { XIcon, SettingsIcon, ChevronDownIcon, AlertTriangleIcon } from 'lucide-vue-next';
-import { ref, watch } from 'vue';
 import { useSettings } from '../composables/useSettings';
 import { usePresets } from '../composables/usePresets';
+import TimeInput from './TimeInput.vue';
 
 defineEmits<{
   close: [];
@@ -232,23 +212,13 @@ const onPresetChange = (e: Event) => {
   setPresetMinutes(val);
 };
 
-// Daily mode time inputs
-const dailyHours = ref(Math.floor((settings.value.dailyMinutes || 480) / 60));
-const dailyMins = ref((settings.value.dailyMinutes || 480) % 60);
-
-// Watch for settings changes to sync inputs
-watch(() => settings.value.dailyMinutes, (newVal) => {
-  if (newVal) {
-    dailyHours.value = Math.floor(newVal / 60);
-    dailyMins.value = newVal % 60;
-  }
-});
-
-// Watch inputs and save to settings
-watch([dailyHours, dailyMins], ([hours, mins]) => {
-  const totalMinutes = (hours || 0) * 60 + (mins || 0);
-  if (totalMinutes > 0) {
-    setDailyMinutes(totalMinutes);
+// Daily mode time proxy for TimeInput component
+const dailyMinutesProxy = computed({
+  get: () => settings.value.dailyMinutes || 480,
+  set: (val: number) => {
+    if (val > 0) {
+      setDailyMinutes(val);
+    }
   }
 });
 

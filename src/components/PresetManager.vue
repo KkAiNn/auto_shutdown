@@ -19,30 +19,16 @@
 
       <!-- Add New Preset -->
       <div class="p-4 border-b border-white/10">
-        <div class="flex items-end gap-2">
-          <div class="w-16">
-            <label class="block text-xs text-gray-500 mb-1">小时</label>
-            <input
-              v-model.number="newHours"
-              type="number"
-              min="0"
-              placeholder="0"
-              class="no-spinner w-full px-3 py-2 rounded-xl bg-dark-700/50 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500/50 transition-colors"
+        <div class="flex items-end gap-3">
+          <div class="flex-[2]">
+            <TimeInput
+              v-model="newTotalMinutes"
+              :max-hours="99"
+              hours-label="小时"
+              minutes-label="分钟"
             />
           </div>
-          <div class="text-gray-500 pb-2 text-lg font-bold">:</div>
-          <div class="w-16">
-            <label class="block text-xs text-gray-500 mb-1">分钟</label>
-            <input
-              ref="minsInputRef"
-              :value="newMins"
-              @input="onMinsInput"
-              type="number"
-              placeholder="0"
-              class="no-spinner w-full px-3 py-2 rounded-xl bg-dark-700/50 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500/50 transition-colors"
-            />
-          </div>
-          <div class="flex-1">
+          <div class="flex-[2]">
             <label class="block text-xs text-gray-500 mb-1">显示标签</label>
             <input
               v-model="newLabel"
@@ -54,7 +40,7 @@
           <button
             @click="addNewPreset"
             :disabled="!canAdd"
-            class="px-4 py-2 rounded-xl text-sm font-medium bg-primary-500 hover:bg-primary-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-4 py-2 rounded-xl text-sm font-medium bg-primary-500 hover:bg-primary-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed h-[38px] mt-5"
           >
             添加
           </button>
@@ -110,6 +96,7 @@
 import { ref, computed } from 'vue';
 import { XIcon, ClockIcon, TrashIcon } from 'lucide-vue-next';
 import { usePresets } from '../composables/usePresets';
+import TimeInput from './TimeInput.vue';
 
 defineEmits<{
   close: [];
@@ -117,26 +104,10 @@ defineEmits<{
 
 const { presets, addPreset, deletePreset, resetToDefaults } = usePresets();
 
-const newHours = ref<number | null>(null);
-const newMins = ref<number | null>(null);
+const newTotalMinutes = ref(0);
 const newLabel = ref('');
-const minsInputRef = ref<HTMLInputElement | null>(null);
 
-const onMinsInput = (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  let v = parseInt(input.value) || 0;
-  v = Math.max(0, Math.min(59, v));
-  newMins.value = v;
-  if (minsInputRef.value) {
-    minsInputRef.value.value = String(v);
-  }
-};
-
-const totalMinutes = computed(() => {
-  const hours = newHours.value ?? 0;
-  const mins = newMins.value ?? 0;
-  return hours * 60 + mins;
-});
+const totalMinutes = computed(() => newTotalMinutes.value);
 
 const autoLabel = computed(() => {
   let totalMins = totalMinutes.value;
@@ -174,8 +145,7 @@ const addNewPreset = () => {
   if (canAdd.value) {
     const label = newLabel.value.trim() || autoLabel.value;
     addPreset(totalMinutes.value, label);
-    newHours.value = null;
-    newMins.value = null;
+    newTotalMinutes.value = 0;
     newLabel.value = '';
   }
 };
@@ -185,13 +155,4 @@ const resetPresets = () => {
 };
 </script>
 
-<style scoped>
-.no-spinner::-webkit-outer-spin-button,
-.no-spinner::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.no-spinner {
-  -moz-appearance: textfield;
-}
-</style>
+
