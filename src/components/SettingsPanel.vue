@@ -39,6 +39,46 @@
 
         <div class="border-t border-white/5"></div>
 
+        <!-- Notification Toggle -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium">倒计时提醒通知</p>
+            <p class="text-xs text-gray-500 mt-0.5">还剩5、3、1分钟时发送系统通知</p>
+          </div>
+          <button
+            @click="toggleNotification"
+            class="relative w-12 h-6 rounded-full transition-colors duration-200"
+            :class="settings.enableNotification ? 'bg-primary-500' : 'bg-white/10'"
+          >
+            <div
+              class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+              :class="settings.enableNotification ? 'translate-x-7' : 'translate-x-1'"
+            />
+          </button>
+        </div>
+
+        <div class="border-t border-white/5"></div>
+
+        <!-- Exit Handover Toggle -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium">退出移交倒计时</p>
+            <p class="text-xs text-gray-500 mt-0.5">退出应用时把未完成的倒计时交给Windows接管</p>
+          </div>
+          <button
+            @click="toggleExitHandover"
+            class="relative w-12 h-6 rounded-full transition-colors duration-200"
+            :class="settings.enableExitHandover ? 'bg-primary-500' : 'bg-white/10'"
+          >
+            <div
+              class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+              :class="settings.enableExitHandover ? 'translate-x-7' : 'translate-x-1'"
+            />
+          </button>
+        </div>
+
+        <div class="border-t border-white/5"></div>
+
         <!-- Auto Execute Preset Toggle -->
         <div class="flex items-center justify-between">
           <div>
@@ -104,7 +144,7 @@ defineEmits<{
   close: [];
 }>();
 
-const { autoStartEnabled, settings, setAutoStart, setAutoExecutePreset, setPresetMinutes } = useSettings();
+const { autoStartEnabled, settings, setAutoStart, setAutoExecutePreset, setPresetMinutes, setEnableNotification, setEnableExitHandover } = useSettings();
 const { presets } = usePresets();
 
 const presetsForDisplay = computed(() => {
@@ -113,6 +153,14 @@ const presetsForDisplay = computed(() => {
 
 const toggleAutoStart = () => {
   setAutoStart(!autoStartEnabled.value);
+};
+
+const toggleNotification = () => {
+  setEnableNotification(!settings.value.enableNotification);
+};
+
+const toggleExitHandover = () => {
+  setEnableExitHandover(!settings.value.enableExitHandover);
 };
 
 const toggleAutoExecute = () => {

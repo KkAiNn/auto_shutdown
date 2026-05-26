@@ -186,6 +186,14 @@ async fn schedule_shutdown(app_handle: AppHandle, seconds: u32) -> Result<(), St
             
             while remaining > 0 {
                 thread::sleep(Duration::from_secs(1));
+                
+                // Check if shutdown was canceled
+                if let Ok(state) = SHUTDOWN_STATE.lock() {
+                    if !state.is_scheduled {
+                        return;  // Exit thread if canceled
+                    }
+                }
+                
                 remaining -= 1;
                 
                 // Update remaining seconds in state
@@ -194,14 +202,31 @@ async fn schedule_shutdown(app_handle: AppHandle, seconds: u32) -> Result<(), St
                 }
             }
             
-            // Log shutdown complete before executing shutdown
-            let _ = add_log_entry(&app_handle_clone, "shutdown_complete", "关机命令已执行，系统即将关闭", None);
+            // Final check before executing shutdown
+            if let Ok(state) = SHUTDOWN_STATE.lock() {
+                if !state.is_scheduled {
+                    return;
+                }
+            }
             
-            // Time's up - execute shutdown immediately (no Windows countdown)
-            let _ = Command::new("shutdown")
-                .args(["/s", "/t", "0", "/f"])  // /t 0 = shutdown immediately
-                .creation_flags(0x08000000)
-                .output();
+            #[cfg(debug_assertions)]
+            {
+                // Development mode: Only log, don't actually shutdown
+                let _ = add_log_entry(&app_handle_clone, "shutdown_complete", "[开发模式] 时间到，跳过真实关机", None);
+                println!("[开发模式] 时间已到，不执行真实关机命令。");
+            }
+            
+            #[cfg(not(debug_assertions))]
+            {
+                // Release mode: Execute actual shutdown
+                let _ = add_log_entry(&app_handle_clone, "shutdown_complete", "关机命令已执行，系统即将关闭", None);
+                
+                // Time's up - execute shutdown immediately (no Windows countdown)
+                let _ = Command::new("shutdown")
+                    .args(["/s", "/t", "0", "/f"])  // /t 0 = shutdown immediately
+                    .creation_flags(0x08000000)
+                    .output();
+            }
             
             // Reset state
             if let Ok(mut state) = SHUTDOWN_STATE.lock() {
@@ -290,7 +315,15 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // Focus existing window when second instance launches
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             schedule_shutdown,
@@ -323,8 +356,70 @@ pub fn run() {
                             }
                         }
                         "quit" => {
-                            // Log app exit before quitting
-                            let _ = add_log_entry(&app, "app_exit", "用户主动退出应用", None);
+                            #[cfg(not(debug_assertions))]
+                            {
+                                // Check if shutdown countdown is running before exiting
+                                let should_handover = {
+                                    if let Ok(state) = SHUTDOWN_STATE.lock() {
+                                        state.is_scheduled && state.remaining_seconds > 0
+                                    } else {
+                                        false
+                                    }
+                                };
+
+                                if should_handover {
+                                    // Try to read settings to check if handover is enabled
+                                    let handover_enabled = if let Ok(app_dir) = app.path().app_data_dir() {
+                                        let settings_path = app_dir.join("settings.json");
+                                        if settings_path.exists() {
+                                            if let Ok(settings_content) = std::fs::read_to_string(&settings_path) {
+                                                if let Ok(settings_json) = serde_json::from_str::<serde_json::Value>(&settings_content) {
+                                                    settings_json.get("enableExitHandover")
+                                                        .and_then(|v| v.as_bool())
+                                                        .unwrap_or(true) // default to enabled
+                                                } else {
+                                                    true
+                                                }
+                                            } else {
+                                                true
+                                            }
+                                        } else {
+                                            true
+                                        }
+                                    } else {
+                                        true
+                                    };
+
+                                    if handover_enabled {
+                                        // Handover shutdown countdown to Windows before app exits
+                                        let remaining_opt = SHUTDOWN_STATE.lock()
+                                            .ok()
+                                            .map(|s| s.remaining_seconds)
+                                            .filter(|&s| s > 0);
+
+                                        if let Some(remaining) = remaining_opt {
+                                            let remaining_str = remaining.to_string();
+                                            let _ = Command::new("shutdown")
+                                                .args(["/s", "/t", &remaining_str, "/c", "Auto shutdown scheduled"])
+                                                .creation_flags(0x08000000)
+                                                .output();
+
+                                            let msg = format!("倒计时移交Windows系统接管，剩余{}秒", remaining);
+                                            let _ = add_log_entry(&app, "app_exit", &msg, None);
+                                        }
+                                    } else {
+                                        let _ = add_log_entry(&app, "app_exit", "用户主动退出应用，未移交倒计时", None);
+                                    }
+                                } else {
+                                    let _ = add_log_entry(&app, "app_exit", "用户主动退出应用", None);
+                                }
+                            }
+
+                            #[cfg(debug_assertions)]
+                            {
+                                let _ = add_log_entry(&app, "app_exit", "用户主动退出应用", None);
+                            }
+
                             app.exit(0);
                         }
                         _ => {}
@@ -342,6 +437,14 @@ pub fn run() {
                 .build(app)?;
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            use tauri::WindowEvent;
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // Prevent window from closing, just hide it to tray
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

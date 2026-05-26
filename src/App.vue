@@ -10,17 +10,17 @@
     />
 
     <!-- Main Content - Scrollable -->
-    <div class="flex-1 flex flex-col p-6 gap-5 overflow-y-auto">
+    <div class="flex-1 flex flex-col p-6 gap-5 overflow-y-auto overflow-x-hidden" :class="state.isRunning ? 'justify-center' : ''">
       <!-- Countdown Ring Section -->
-      <div class="flex justify-center py-1 animate-slide-up flex-shrink-0">
+      <div class="flex justify-center py-1 animate-slide-up flex-shrink-0" :class="state.isRunning ? 'p-4' : ''">
         <CountdownRing
           :formatted-time="
             state.isRunning ? formattedTime : previewFormattedTime
           "
           :progress="state.isRunning ? progress : 1"
           :is-running="state.isRunning"
-          :size="160"
-          :stroke-width="6"
+          :size="state.isRunning ? 260 : 160"
+          :stroke-width="10"
         />
       </div>
 
@@ -29,20 +29,17 @@
         class="text-center animate-fade-in flex-shrink-0"
         style="animation-delay: 0.2s"
       >
-        <p v-if="state.isRunning" class="text-sm text-primary-400 font-medium">
-          系统将在 {{ formattedTime }} 后关机
-        </p>
         <p
-          v-else-if="selectedMinutes > 0"
+          v-if="!state.isRunning && selectedMinutes > 0"
           class="text-sm text-primary-400 font-medium"
         >
           {{ shutdownTimeText }}
         </p>
-        <p v-else class="text-sm text-gray-500">选择时间开始倒计时关机</p>
+        <p v-if="!state.isRunning && selectedMinutes <= 0" class="text-sm text-gray-500">选择时间开始倒计时关机</p>
       </div>
 
-      <!-- Preset Buttons -->
-      <div class="animate-slide-up flex-shrink-0" style="animation-delay: 0.3s">
+      <!-- Preset Buttons (Hidden when running) -->
+      <div v-if="!state.isRunning" class="animate-slide-up flex-shrink-0" style="animation-delay: 0.3s">
         <PresetButtons
           :selected-minutes="selectedMinutes"
           :is-running="state.isRunning"
@@ -50,8 +47,8 @@
         />
       </div>
 
-      <!-- Custom Time Input -->
-      <div class="animate-slide-up flex-shrink-0" style="animation-delay: 0.4s">
+      <!-- Custom Time Input (Hidden when running) -->
+      <div v-if="!state.isRunning" class="animate-slide-up flex-shrink-0" style="animation-delay: 0.4s">
         <CustomTimeInput
           v-model="selectedMinutes"
           :is-running="state.isRunning"
@@ -62,6 +59,7 @@
       <!-- Action Buttons -->
       <div
         class="flex gap-3 mt-2 animate-slide-up flex-shrink-0"
+        :class="state.isRunning ? 'mt-4' : ''"
         style="animation-delay: 0.5s"
       >
         <button
@@ -86,7 +84,8 @@
 
       <!-- Warning Note -->
       <div
-        class="animate-fade-in mt-auto flex-shrink-0"
+        class="animate-fade-in flex-shrink-0"
+        :class="state.isRunning ? 'mt-2' : 'mt-auto'"
         style="animation-delay: 0.6s"
       >
         <div
@@ -209,7 +208,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import {
   PlayIcon,
   SquareIcon,
@@ -230,6 +229,7 @@ import { useSettings } from "./composables/useSettings";
 import { useLogger } from "./composables/useLogger";
 import { useConfirm } from "./composables/useConfirm";
 import { invoke } from "@tauri-apps/api/core";
+import { sendNotification } from "@tauri-apps/plugin-notification";
 
 const {
   state,
@@ -296,10 +296,13 @@ const formatDayText = (now: Date, shutdownTime: Date) => {
 
 // 计算预计关机时间文本（实时更新）
 const shutdownTimeText = computed(() => {
-  if (selectedMinutes.value <= 0) return "";
+  const seconds = state.value.isRunning 
+    ? state.value.remainingSeconds 
+    : selectedMinutes.value * 60;
+  if (seconds <= 0) return "";
   const now = new Date(currentTime.value);
   const shutdownTime = new Date(
-    currentTime.value + selectedMinutes.value * 60 * 1000
+    currentTime.value + seconds * 1000
   );
   const dayText = formatDayText(now, shutdownTime);
   if (dayText.includes("明天") || dayText.includes("后天") || dayText.match(/^\d{2}\/\d{2}/)) {
@@ -483,6 +486,42 @@ const {
   settings,
   loadSettings,
 } = useSettings();
+
+// Track notified minutes to avoid multiple notifications
+const notifiedMinutes = ref<Set<number>>(new Set());
+
+// Watch for countdown key points (5, 3, 1 minutes)
+watch(
+  () => state.value.remainingSeconds,
+  (newSeconds) => {
+    if (!settings.value.enableNotification || !state.value.isRunning) return;
+
+    const remainingMinutes = Math.ceil(newSeconds / 60);
+    const triggerPoints = [5, 3, 1];
+
+    if (triggerPoints.includes(remainingMinutes) && !notifiedMinutes.value.has(remainingMinutes)) {
+      notifiedMinutes.value.add(remainingMinutes);
+      sendNotification({
+        title: "自动关机提醒",
+        body: `还剩 ${remainingMinutes} 分钟即将自动关机，请立即保存文档，避免重要数据丢失！`,
+      });
+    }
+  }
+);
+
+// Reset notified minutes when countdown starts
+// Also detect countdown completion for logging
+watch(
+  () => state.value.isRunning,
+  (isRunning, wasRunning) => {
+    if (isRunning) {
+      notifiedMinutes.value.clear();
+    } else if (wasRunning && state.value.remainingSeconds === 0) {
+      // Countdown completed normally, log completion
+      addLog('shutdown_complete', '关机倒计时已结束', {});
+    }
+  }
+);
 
 onMounted(async () => {
   // Check for existing shutdown status

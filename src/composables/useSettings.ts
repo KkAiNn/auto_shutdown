@@ -6,6 +6,8 @@ export interface AppSettings {
   autoHideToTray: boolean;
   autoExecutePreset: boolean;
   presetMinutes: number | null;
+  enableNotification: boolean;
+  enableExitHandover: boolean;
 }
 
 const SETTINGS_KEY = 'app_settings';
@@ -16,6 +18,8 @@ const globalSettings = ref<AppSettings>({
   autoHideToTray: false,
   autoExecutePreset: false,
   presetMinutes: null,
+  enableNotification: true,
+  enableExitHandover: true,
 });
 const globalSettingsInitialized = ref(false);
 let globalStore: Store | null = null;
@@ -88,7 +92,17 @@ export function useSettings() {
     await saveGlobalSettings({ autoHideToTray: enabled });
   };
 
+  const setEnableNotification = async (enabled: boolean) => {
+    await saveGlobalSettings({ enableNotification: enabled });
+  };
+
+  const setEnableExitHandover = async (enabled: boolean) => {
+    await saveGlobalSettings({ enableExitHandover: enabled });
+  };
+
   const autoHideToTray = computed(() => globalSettings.value.autoHideToTray);
+  const enableNotification = computed(() => globalSettings.value.enableNotification);
+  const enableExitHandover = computed(() => globalSettings.value.enableExitHandover);
 
   const saveSettings = async (autoHide?: boolean) => {
     // Backward compatible: if autoHide passed, persist it
@@ -106,6 +120,8 @@ export function useSettings() {
   return {
     autoStartEnabled,
     autoHideToTray,
+    enableNotification,
+    enableExitHandover,
     settings,
     initialized,
     loadSettings,
@@ -113,6 +129,8 @@ export function useSettings() {
     setAutoExecutePreset,
     setPresetMinutes,
     setAutoHideToTray,
+    setEnableNotification,
+    setEnableExitHandover,
     saveSettings,
   };
 }
