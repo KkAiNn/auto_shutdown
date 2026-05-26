@@ -1,13 +1,13 @@
 <template>
-  <div class="h-screen w-screen bg-dark-800/95 backdrop-blur-xl flex flex-col overflow-hidden">
+  <div class="h-screen w-screen bg-dark-800/95 backdrop-blur-xl flex flex-col overflow-hidden text-white">
     <!-- Custom Title Bar -->
     <div 
       class="h-10 flex items-center justify-between px-4 border-b border-white/10 bg-dark-900/50 select-none" 
       data-tauri-drag-region
     >
       <div class="flex items-center gap-2 pointer-events-none">
-        <SettingsIcon class="w-4 h-4 text-primary-400" />
-        <span class="text-sm font-medium">设置</span>
+        <SettingsIcon class="w-4 h-4 text-cyan-400" />
+        <span class="text-sm font-medium text-white">设置</span>
       </div>
       <div class="flex items-center gap-1">
         <button 
@@ -30,13 +30,13 @@
       <!-- Auto Start Toggle -->
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium">开机自启动</p>
-          <p class="text-xs text-gray-500 mt-0.5">登录 Windows 后自动启动应用</p>
+          <p class="text-sm font-medium text-white">开机自启动</p>
+          <p class="text-xs text-gray-400 mt-0.5">登录 Windows 后自动启动应用</p>
         </div>
         <button
           @click="toggleAutoStart"
           class="relative w-12 h-6 rounded-full transition-colors duration-200"
-          :class="autoStartEnabled ? 'bg-primary-500' : 'bg-white/10'"
+          :class="autoStartEnabled ? 'bg-cyan-500' : 'bg-white/10'"
         >
           <div
             class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
@@ -50,13 +50,13 @@
       <!-- Notification Toggle -->
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium">倒计时提醒通知</p>
-          <p class="text-xs text-gray-500 mt-0.5">还剩5、3、1分钟时发送系统通知</p>
+          <p class="text-sm font-medium text-white">倒计时提醒通知</p>
+          <p class="text-xs text-gray-400 mt-0.5">还剩5、3、1分钟时发送系统通知</p>
         </div>
         <button
           @click="toggleNotification"
           class="relative w-12 h-6 rounded-full transition-colors duration-200"
-          :class="settings.enableNotification ? 'bg-primary-500' : 'bg-white/10'"
+          :class="settings.enableNotification ? 'bg-cyan-500' : 'bg-white/10'"
         >
           <div
             class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
@@ -70,13 +70,13 @@
       <!-- Exit Handover Toggle -->
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium">退出移交倒计时</p>
-          <p class="text-xs text-gray-500 mt-0.5">退出应用时把未完成的倒计时交给Windows接管</p>
+          <p class="text-sm font-medium text-white">退出移交倒计时</p>
+          <p class="text-xs text-gray-400 mt-0.5">退出应用时把未完成的倒计时交给Windows接管</p>
         </div>
         <button
           @click="toggleExitHandover"
           class="relative w-12 h-6 rounded-full transition-colors duration-200"
-          :class="settings.enableExitHandover ? 'bg-primary-500' : 'bg-white/10'"
+          :class="settings.enableExitHandover ? 'bg-cyan-500' : 'bg-white/10'"
         >
           <div
             class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
@@ -90,13 +90,13 @@
       <!-- Daily Mode Toggle -->
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium">每日模式</p>
-          <p class="text-xs text-gray-500 mt-0.5">限制每日使用时长，超时强制关机</p>
+          <p class="text-sm font-medium text-white">每日模式</p>
+          <p class="text-xs text-gray-400 mt-0.5">限制每日使用时长，超时强制关机</p>
         </div>
         <button
           @click="toggleDailyMode"
           class="relative w-12 h-6 rounded-full transition-colors duration-200"
-          :class="settings.dailyMode ? 'bg-primary-500' : 'bg-white/10'"
+          :class="settings.dailyMode ? 'bg-cyan-500' : 'bg-white/10'"
         >
           <div
             class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
@@ -106,14 +106,14 @@
       </div>
 
       <!-- Daily Limit Settings (shown when daily mode enabled) -->
-      <div v-if="settings.dailyMode" class="pl-4 border-l-2 border-primary-500/30 space-y-3">
+      <div v-if="settings.dailyMode" class="pl-4 border-l-2 border-cyan-500/30 space-y-3">
         <TimeInput
           v-model="dailyMinutesProxy"
           :max-hours="23"
           hours-label="每日小时"
           minutes-label="每日分钟"
         />
-        <p class="text-xs text-amber-400/80">
+        <p class="text-xs text-amber-400/90">
           <AlertTriangleIcon class="w-3 h-3 inline mr-1" />
           开启后将联动开启自启动，超时前1分钟提醒，无法通过任务管理器阻止关机
         </p>
@@ -124,13 +124,13 @@
       <!-- Auto Execute Preset Toggle -->
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium">自动执行预设</p>
-          <p class="text-xs text-gray-500 mt-0.5">应用启动后自动开始倒计时</p>
+          <p class="text-sm font-medium text-white">自动执行预设</p>
+          <p class="text-xs text-gray-400 mt-0.5">应用启动后自动开始倒计时</p>
         </div>
         <button
           @click="toggleAutoExecute"
           class="relative w-12 h-6 rounded-full transition-colors duration-200"
-          :class="settings.autoExecutePreset ? 'bg-primary-500' : 'bg-white/10'"
+          :class="settings.autoExecutePreset ? 'bg-cyan-500' : 'bg-white/10'"
         >
           <div
             class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
@@ -140,13 +140,13 @@
       </div>
 
       <!-- Preset Selector (shown when enabled) -->
-      <div v-if="settings.autoExecutePreset" class="pl-4 border-l-2 border-primary-500/30">
+      <div v-if="settings.autoExecutePreset" class="pl-4 border-l-2 border-cyan-500/30">
         <label class="block text-xs text-gray-400 mb-2">选择预设值</label>
         <div class="relative">
           <select
             :value="settings.presetMinutes ?? presetsForDisplay[0]?.minutes ?? 60"
             @change="onPresetChange"
-            class="w-full appearance-none px-4 py-2.5 rounded-xl bg-dark-700/50 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500/50 transition-colors pr-10"
+            class="w-full appearance-none px-4 py-2.5 rounded-xl bg-dark-700/50 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors pr-10"
           >
             <option
               v-for="preset in presetsForDisplay"
