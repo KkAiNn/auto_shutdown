@@ -79,6 +79,60 @@
 
         <div class="border-t border-white/5"></div>
 
+        <!-- Daily Mode Toggle -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium">每日模式</p>
+            <p class="text-xs text-gray-500 mt-0.5">限制每日使用时长，超时强制关机</p>
+          </div>
+          <button
+            @click="toggleDailyMode"
+            class="relative w-12 h-6 rounded-full transition-colors duration-200"
+            :class="settings.dailyMode ? 'bg-primary-500' : 'bg-white/10'"
+          >
+            <div
+              class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+              :class="settings.dailyMode ? 'translate-x-7' : 'translate-x-1'"
+            />
+          </button>
+        </div>
+
+        <!-- Daily Limit Settings (shown when daily mode enabled) -->
+        <div v-if="settings.dailyMode" class="pl-4 border-l-2 border-primary-500/30 space-y-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-2">每日使用时长</label>
+            <div class="flex items-center gap-2">
+              <div class="flex-1">
+                <input
+                  v-model.number="dailyHours"
+                  type="number"
+                  min="0"
+                  max="23"
+                  class="w-full px-3 py-2 rounded-xl bg-dark-700/50 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500/50 transition-colors no-spinner"
+                  placeholder="小时"
+                />
+              </div>
+              <span class="text-gray-500">:</span>
+              <div class="flex-1">
+                <input
+                  v-model.number="dailyMins"
+                  type="number"
+                  min="0"
+                  max="59"
+                  class="w-full px-3 py-2 rounded-xl bg-dark-700/50 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500/50 transition-colors no-spinner"
+                  placeholder="分钟"
+                />
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-amber-400/80">
+            <AlertTriangleIcon class="w-3 h-3 inline mr-1" />
+            开启后将联动开启自启动，超时前1分钟提醒，无法通过任务管理器阻止关机
+          </p>
+        </div>
+
+        <div class="border-t border-white/5"></div>
+
         <!-- Auto Execute Preset Toggle -->
         <div class="flex items-center justify-between">
           <div>
@@ -136,7 +190,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { XIcon, SettingsIcon, ChevronDownIcon } from 'lucide-vue-next';
+import { XIcon, SettingsIcon, ChevronDownIcon, AlertTriangleIcon } from 'lucide-vue-next';
+import { ref, watch } from 'vue';
 import { useSettings } from '../composables/useSettings';
 import { usePresets } from '../composables/usePresets';
 
@@ -144,7 +199,7 @@ defineEmits<{
   close: [];
 }>();
 
-const { autoStartEnabled, settings, setAutoStart, setAutoExecutePreset, setPresetMinutes, setEnableNotification, setEnableExitHandover } = useSettings();
+const { autoStartEnabled, settings, setAutoStart, setAutoExecutePreset, setPresetMinutes, setEnableNotification, setEnableExitHandover, setDailyMode, setDailyMinutes } = useSettings();
 const { presets } = usePresets();
 
 const presetsForDisplay = computed(() => {
@@ -175,5 +230,29 @@ const toggleAutoExecute = () => {
 const onPresetChange = (e: Event) => {
   const val = parseInt((e.target as HTMLSelectElement).value) || 60;
   setPresetMinutes(val);
+};
+
+// Daily mode time inputs
+const dailyHours = ref(Math.floor((settings.value.dailyMinutes || 480) / 60));
+const dailyMins = ref((settings.value.dailyMinutes || 480) % 60);
+
+// Watch for settings changes to sync inputs
+watch(() => settings.value.dailyMinutes, (newVal) => {
+  if (newVal) {
+    dailyHours.value = Math.floor(newVal / 60);
+    dailyMins.value = newVal % 60;
+  }
+});
+
+// Watch inputs and save to settings
+watch([dailyHours, dailyMins], ([hours, mins]) => {
+  const totalMinutes = (hours || 0) * 60 + (mins || 0);
+  if (totalMinutes > 0) {
+    setDailyMinutes(totalMinutes);
+  }
+});
+
+const toggleDailyMode = () => {
+  setDailyMode(!settings.value.dailyMode);
 };
 </script>
