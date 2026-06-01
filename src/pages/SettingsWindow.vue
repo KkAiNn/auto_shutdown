@@ -25,8 +25,16 @@
       </div>
     </div>
 
+    <!-- Loading State -->
+    <div v-if="!isReady" class="flex-1 flex items-center justify-center">
+      <div class="flex flex-col items-center gap-3">
+        <div class="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
+        <span class="text-sm text-gray-400">加载中...</span>
+      </div>
+    </div>
+
     <!-- Settings Content -->
-    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+    <div v-else class="flex-1 overflow-y-auto p-6 space-y-6">
       <!-- Auto Start Toggle -->
       <div class="flex items-center justify-between">
         <div>
@@ -63,60 +71,6 @@
             :class="settings.enableNotification ? 'translate-x-7' : 'translate-x-1'"
           />
         </button>
-      </div>
-
-      <div class="border-t border-white/5"></div>
-
-      <!-- Exit Handover Toggle -->
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-white">退出移交倒计时</p>
-          <p class="text-xs text-gray-400 mt-0.5">退出应用时把未完成的倒计时交给Windows接管</p>
-        </div>
-        <button
-          @click="toggleExitHandover"
-          class="relative w-12 h-6 rounded-full transition-colors duration-200"
-          :class="settings.enableExitHandover ? 'bg-cyan-500' : 'bg-white/10'"
-        >
-          <div
-            class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
-            :class="settings.enableExitHandover ? 'translate-x-7' : 'translate-x-1'"
-          />
-        </button>
-      </div>
-
-      <div class="border-t border-white/5"></div>
-
-      <!-- Daily Mode Toggle -->
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-white">每日模式</p>
-          <p class="text-xs text-gray-400 mt-0.5">限制每日使用时长，超时强制关机</p>
-        </div>
-        <button
-          @click="toggleDailyMode"
-          class="relative w-12 h-6 rounded-full transition-colors duration-200"
-          :class="settings.dailyMode ? 'bg-cyan-500' : 'bg-white/10'"
-        >
-          <div
-            class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
-            :class="settings.dailyMode ? 'translate-x-7' : 'translate-x-1'"
-          />
-        </button>
-      </div>
-
-      <!-- Daily Limit Settings (shown when daily mode enabled) -->
-      <div v-if="settings.dailyMode" class="pl-4 border-l-2 border-cyan-500/30 space-y-3">
-        <TimeInput
-          v-model="dailyMinutesProxy"
-          :max-hours="23"
-          hours-label="每日小时"
-          minutes-label="每日分钟"
-        />
-        <p class="text-xs text-amber-400/90">
-          <AlertTriangleIcon class="w-3 h-3 inline mr-1" />
-          开启后将联动开启自启动，超时前1分钟提醒，无法通过任务管理器阻止关机
-        </p>
       </div>
 
       <div class="border-t border-white/5"></div>
@@ -166,21 +120,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
-import { SettingsIcon, XIcon, MinusIcon, ChevronDownIcon, AlertTriangleIcon } from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
+import { SettingsIcon, XIcon, MinusIcon, ChevronDownIcon } from 'lucide-vue-next';
 import { useSettings } from '../composables/useSettings';
 import { usePresets } from '../composables/usePresets';
-import TimeInput from '../components/TimeInput.vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-const { autoStartEnabled, settings, initialized, loadSettings, setAutoStart, setAutoExecutePreset, setPresetMinutes, setEnableNotification, setEnableExitHandover, setDailyMode, setDailyMinutes } = useSettings();
+const { autoStartEnabled, settings, initialized, loadSettings, setAutoStart, setAutoExecutePreset, setPresetMinutes, setEnableNotification } = useSettings();
 const { presets, loadPresets } = usePresets();
+
+const isReady = ref(false);
 
 onMounted(async () => {
   if (!initialized.value) {
     await loadSettings();
   }
   await loadPresets();
+  isReady.value = true;
 });
 
 const presetsForDisplay = computed(() => {
@@ -205,10 +161,6 @@ const toggleNotification = () => {
   setEnableNotification(!settings.value.enableNotification);
 };
 
-const toggleExitHandover = () => {
-  setEnableExitHandover(!settings.value.enableExitHandover);
-};
-
 const toggleAutoExecute = () => {
   const newVal = !settings.value.autoExecutePreset;
   setAutoExecutePreset(newVal);
@@ -220,18 +172,5 @@ const toggleAutoExecute = () => {
 const onPresetChange = (e: Event) => {
   const val = parseInt((e.target as HTMLSelectElement).value) || 60;
   setPresetMinutes(val);
-};
-
-const dailyMinutesProxy = computed({
-  get: () => settings.value.dailyMinutes || 480,
-  set: (val: number) => {
-    if (val > 0) {
-      setDailyMinutes(val);
-    }
-  }
-});
-
-const toggleDailyMode = () => {
-  setDailyMode(!settings.value.dailyMode);
 };
 </script>

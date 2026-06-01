@@ -7,9 +7,6 @@ export interface AppSettings {
   autoExecutePreset: boolean;
   presetMinutes: number | null;
   enableNotification: boolean;
-  enableExitHandover: boolean;
-  dailyMode: boolean;
-  dailyMinutes: number;
 }
 
 const SETTINGS_KEY = 'app_settings';
@@ -21,9 +18,6 @@ const globalSettings = ref<AppSettings>({
   autoExecutePreset: false,
   presetMinutes: null,
   enableNotification: true,
-  enableExitHandover: true,
-  dailyMode: false,
-  dailyMinutes: 480, // 默认8小时
 });
 const globalSettingsInitialized = ref(false);
 let globalStore: Store | null = null;
@@ -100,27 +94,8 @@ export function useSettings() {
     await saveGlobalSettings({ enableNotification: enabled });
   };
 
-  const setEnableExitHandover = async (enabled: boolean) => {
-    await saveGlobalSettings({ enableExitHandover: enabled });
-  };
-
-  const setDailyMode = async (enabled: boolean) => {
-    await saveGlobalSettings({ dailyMode: enabled });
-    // 开启每日模式时，联动开启自启动
-    if (enabled) {
-      await setAutoStart(true);
-    }
-  };
-
-  const setDailyMinutes = async (minutes: number) => {
-    await saveGlobalSettings({ dailyMinutes: minutes });
-  };
-
   const autoHideToTray = computed(() => globalSettings.value.autoHideToTray);
   const enableNotification = computed(() => globalSettings.value.enableNotification);
-  const enableExitHandover = computed(() => globalSettings.value.enableExitHandover);
-  const dailyMode = computed(() => globalSettings.value.dailyMode);
-  const dailyMinutes = computed(() => globalSettings.value.dailyMinutes);
 
   const saveSettings = async (autoHide?: boolean) => {
     // Backward compatible: if autoHide passed, persist it
@@ -139,9 +114,6 @@ export function useSettings() {
     autoStartEnabled,
     autoHideToTray,
     enableNotification,
-    enableExitHandover,
-    dailyMode,
-    dailyMinutes,
     settings,
     initialized,
     loadSettings,
@@ -150,9 +122,6 @@ export function useSettings() {
     setPresetMinutes,
     setAutoHideToTray,
     setEnableNotification,
-    setEnableExitHandover,
-    setDailyMode,
-    setDailyMinutes,
     saveSettings,
   };
 }
